@@ -1,6 +1,8 @@
-﻿namespace UnitTests.SeedWork
+﻿using System.Numerics;
+
+namespace UnitTests.SeedWork
 {
-    internal sealed class Entity
+    internal sealed class Entity : IDisposable
     {
         public int Id { get; private set; }
         public List<Plan> Plans { get; private set; } = new List<Plan>();
@@ -40,6 +42,13 @@
             Name = name;
             Description = description;
             Plans.AddRange(plans);
+        }
+
+        public void Dispose()
+        {
+            Plans.Clear();
+            Plans = null;
+            GC.SuppressFinalize(this);
         }
     }
 }

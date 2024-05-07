@@ -1,68 +1,94 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Diagnostics;
 using UnitTests.Builders;
 using UnitTests.Builders.Contracts;
 using UnitTests.SeedWork;
+using Xunit.Abstractions;
 
 namespace UnitTests.Tests
 {
     public sealed class MemoryLeakTest
     {
+        private readonly ITestOutputHelper _output;
         private ServiceCollection _services;
-        private readonly IServiceProvider _serviceProvider;
-        private readonly IEntityBuilder _entityBuilder;
-        public MemoryLeakTest()
+        public MemoryLeakTest(ITestOutputHelper output)
         {
             SetUp();
-
-            _serviceProvider = _services.BuildServiceProvider();
-            _entityBuilder = _serviceProvider.GetRequiredService<IEntityBuilder>();
+            _output = output;
         }
 
         [Fact]
         public void Should_Be_Detect_Memory_Leak_After_Parse_Completed_With_Success()
         {
-            // Arrange
-            var source = GetQueryResults();
-
-            // Act
-            foreach (var queryResult in source)
+            WeakReference weakReference;
+            GetMemoryUsage();
+            using (var _serviceProvider = _services.BuildServiceProvider())
             {
-                _entityBuilder
-                    .WithId(queryResult.EntityId)
-                    .WithName(queryResult.EntityName)
-                    .IsMultiSponsored(queryResult.IsMultiSponsored)
-                    .HavingPlan(planBuilder =>
-                    {
-                        planBuilder
-                        .WithId(queryResult.PlanId, queryResult.EntityId)
-                        .WithName(queryResult.PlanName)
-                        .HavingSponsor(sponsorBuilder =>
-                        {
-                            sponsorBuilder
-                            .WithId(queryResult.SponsorId, queryResult.PlanId)
-                            .WithAlias(queryResult.SponsorAlias)
-                            .WithName(queryResult.SponsorName)
-                            .WithEffectiveDate(queryResult.EffectiveDate)
-                            .IsActive(queryResult.SponsorIsActive)
-                            .HavingBranch(branchBuilder =>
-                            {
-                                branchBuilder
-                                .WithId(queryResult.BranchId, queryResult.SponsorId)
-                                .WithAlias(queryResult.BranchAlias)
-                                .IsActive(queryResult.BranchIsActive);
-                            });
+                GetMemoryUsage();
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    GetMemoryUsage();
+                    var _entityBuilder = scope.ServiceProvider.GetRequiredService<IEntityBuilder>();
+                    // Arrange
+                    var source = GetQueryResults();
 
-                        });
-                    });
+                    // Act
+                    foreach (var queryResult in source)
+                    {
+                        _entityBuilder
+                            .WithId(queryResult.EntityId)
+                            .WithName(queryResult.EntityName)
+                            .IsMultiSponsored(queryResult.IsMultiSponsored)
+                            .HavingPlan(planBuilder =>
+                            {
+                                planBuilder
+                                .WithId(queryResult.PlanId, queryResult.EntityId)
+                                .WithName(queryResult.PlanName)
+                                .HavingSponsor(sponsorBuilder =>
+                                {
+                                    sponsorBuilder
+                                    .WithId(queryResult.SponsorId, queryResult.PlanId)
+                                    .WithAlias(queryResult.SponsorAlias)
+                                    .WithName(queryResult.SponsorName)
+                                    .WithEffectiveDate(queryResult.EffectiveDate)
+                                    .IsActive(queryResult.SponsorIsActive)
+                                    .HavingBranch(branchBuilder =>
+                                    {
+                                        branchBuilder
+                                        .WithId(queryResult.BranchId, queryResult.SponsorId)
+                                        .WithAlias(queryResult.BranchAlias)
+                                        .IsActive(queryResult.BranchIsActive);
+                                    });
+
+                                });
+                            });
+                    }
+                    GetMemoryUsage();
+                    source.Clear();
+                    source = null;
+                    using (var entity = _entityBuilder.Build())
+                    {
+                        GetMemoryUsage();
+                        weakReference = new WeakReference(entity, trackResurrection: true);
+                    } 
+                }
             }
 
-            var entity = _entityBuilder.Build();
-            var weakReference = new WeakReference(entity, trackResurrection: true);
-
-            GC.Collect();
+            GetMemoryUsage();
+            //GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true); // Will go down after this line
+            GC.Collect(); //Always increasing in memory usage
             GC.WaitForPendingFinalizers();
-
+            _output.WriteLine($"Collected");
+            GetMemoryUsage();
             Assert.True(weakReference.IsAlive);
+        }
+
+        void GetMemoryUsage()
+        {
+            Process currentProcess = Process.GetCurrentProcess();
+            long usedMemory = currentProcess.PrivateMemorySize64;
+            _output.WriteLine($"Used memory: {usedMemory} bytes");
         }
 
         private void SetUp()
@@ -80,7 +106,7 @@ namespace UnitTests.Tests
             //TODO
         }
 
-        private IEnumerable<FindAssociatedBranchesAndSponsorsQueryResult> GetQueryResults()
+        private List<FindAssociatedBranchesAndSponsorsQueryResult> GetQueryResults()
         {
             return new List<FindAssociatedBranchesAndSponsorsQueryResult>
             {

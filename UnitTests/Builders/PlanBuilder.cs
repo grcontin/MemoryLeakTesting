@@ -3,7 +3,7 @@ using UnitTests.SeedWork;
 
 namespace UnitTests.Builders
 {
-    internal sealed class PlanBuilder : IPlanBuilder
+    internal sealed class PlanBuilder : IPlanBuilder, IDisposable
     {
         private int _id;
         private int _entityId;
@@ -86,6 +86,13 @@ namespace UnitTests.Builders
             InstanceCache.Add(plan.Id, plan);
 
             return plan;
+        }
+
+        public void Dispose()
+        {
+            InstanceCache.Clear();
+            InstanceCache = null;
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -3,7 +3,7 @@ using UnitTests.SeedWork;
 
 namespace UnitTests.Builders
 {
-    internal sealed class EntityBuilder : IEntityBuilder
+    internal sealed class EntityBuilder : IEntityBuilder, IDisposable
     {
         private int _id;
         private string _name;
@@ -76,6 +76,13 @@ namespace UnitTests.Builders
             InstanceCache.Add(entity.Id, entity);
 
             return entity;
+        }
+
+        public void Dispose()
+        {
+            InstanceCache.Clear();
+            InstanceCache = null;
+            GC.SuppressFinalize(this);
         }
     }
 }
