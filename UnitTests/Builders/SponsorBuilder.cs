@@ -3,7 +3,7 @@ using UnitTests.SeedWork;
 
 namespace UnitTests.Builders
 {
-    internal sealed class SponsorBuilder : ISponsorBuilder
+    internal sealed class SponsorBuilder : ISponsorBuilder, IDisposable
     {
         private int _id;
         private int _planId;
@@ -103,6 +103,13 @@ namespace UnitTests.Builders
             InstanceCache.Add((sponsor.Id, sponsor.PlanId), sponsor);
 
             return sponsor;
+        }
+
+        public void Dispose()
+        {
+            InstanceCache.Clear();
+            InstanceCache = null;
+            GC.SuppressFinalize(this);
         }
     }
 }

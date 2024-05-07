@@ -3,7 +3,7 @@ using UnitTests.SeedWork;
 
 namespace UnitTests.Builders
 {
-    internal sealed class BranchBuilder : IBranchBuilder
+    internal sealed class BranchBuilder : IBranchBuilder, IDisposable
     {
         private int _id;
         private int _sponsorId;
@@ -86,6 +86,13 @@ namespace UnitTests.Builders
             InstanceCache.Add((branch.Id, branch.SponsorId), branch);
 
             return branch;
+        }
+
+        public void Dispose()
+        {
+            InstanceCache.Clear();
+            InstanceCache = null;
+            GC.SuppressFinalize(this);
         }
     }
 }
